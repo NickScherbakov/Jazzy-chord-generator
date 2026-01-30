@@ -20,6 +20,7 @@ import HelpOverlay from './HelpOverlay';
 import AboutModal from './AboutModal';
 import { ChordBlock, ViewTab } from '../types';
 import { INITIAL_CHORDS } from '../constants';
+import { audioEngine } from '../utils/audioEngine';
 
 const Workspace: React.FC = () => {
   const { id } = useParams();
@@ -81,15 +82,29 @@ const Workspace: React.FC = () => {
     }
   };
 
+  // Initialize audio engine and handle playback
   useEffect(() => {
     let interval: any;
+    
     if (isPlaying) {
+      // Инициализируем и запускаем звук
+      audioEngine.play(chords, 120).catch(err => console.error('Audio error:', err));
+      
       interval = setInterval(() => {
         setPlayhead(prev => (prev >= 16 ? 0 : prev + 0.05));
       }, 50);
+    } else {
+      // Останавливаем звук при паузе
+      audioEngine.stop();
     }
-    return () => clearInterval(interval);
-  }, [isPlaying]);
+    
+    return () => {
+      clearInterval(interval);
+      if (!isPlaying) {
+        audioEngine.stop();
+      }
+    };
+  }, [isPlaying, chords]);
 
   const showFeedback = (msg: string) => {
     setToast(msg);
@@ -115,6 +130,14 @@ const Workspace: React.FC = () => {
     setSelectedChordIds(copies.map(c => c.id));
     showFeedback(ids.length > 1 ? `${ids.length} chords duplicated` : 'Chord duplicated');
   };
+
+  // Cleanup на размонтирование компонента
+  useEffect(() => {
+    return () => {
+      audioEngine.stop();
+      audioEngine.dispose();
+    };
+  }, []);
 
   const handleGenerate = () => {
     setIsGenerating(true);
