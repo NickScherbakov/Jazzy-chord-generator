@@ -1,10 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
-  Play, Pause, SkipBack, SkipForward, Square, 
-  Volume2, Download, Layers, Repeat, Zap,
-  Fingerprint, Sparkles, Clock
+  Play, Pause, SkipBack, SkipForward, 
+  Download, Layers, Repeat,
+  Fingerprint
 } from 'lucide-react';
+import TempoRampModal from './TempoRampModal';
 
 interface PlaybackPanelProps {
   isPlaying: boolean;
@@ -14,12 +15,65 @@ interface PlaybackPanelProps {
   theme?: 'Dark' | 'Light';
 }
 
+const RAMP_START_BPM = 60;
+const RAMP_END_BPM = 180;
+const RAMP_DURATION_SECONDS = 65 * 60;
+const SMOOTHING_TAU_SECONDS = 0.3;
+
 const PlaybackPanel: React.FC<PlaybackPanelProps> = ({ isPlaying, onPlayToggle, playhead, onExport, theme = 'Dark' }) => {
   const [swing, setSwing] = useState(50);
   const [humanize, setHumanize] = useState(true);
   const [isLooping, setIsLooping] = useState(true);
+  const [showTempoRamp, setShowTempoRamp] = useState(false);
+  const [displayBpm, setDisplayBpm] = useState(`${RAMP_START_BPM.toFixed(1)}`);
+  const elapsedSecondsRef = useRef(0);
+  const lastTickRef = useRef<number | null>(null);
+  const smoothedBpmRef = useRef(RAMP_START_BPM);
+  const rafRef = useRef<number | null>(null);
 
   const isDark = theme === 'Dark';
+
+  useEffect(() => {
+    const updateBpm = (targetBpm: number, dt: number) => {
+      if (dt <= 0 || !Number.isFinite(dt)) {
+        smoothedBpmRef.current = targetBpm;
+        setDisplayBpm(targetBpm.toFixed(1));
+        return;
+      }
+
+      const alpha = 1 - Math.exp(-dt / SMOOTHING_TAU_SECONDS);
+      smoothedBpmRef.current += alpha * (targetBpm - smoothedBpmRef.current);
+      setDisplayBpm(smoothedBpmRef.current.toFixed(1));
+    };
+
+    const tick = (timestamp: number) => {
+      if (lastTickRef.current === null) {
+        lastTickRef.current = timestamp;
+      }
+
+      const dt = (timestamp - lastTickRef.current) / 1000;
+      lastTickRef.current = timestamp;
+      elapsedSecondsRef.current = Math.min(RAMP_DURATION_SECONDS, elapsedSecondsRef.current + dt);
+
+      const progress = RAMP_DURATION_SECONDS === 0 ? 1 : elapsedSecondsRef.current / RAMP_DURATION_SECONDS;
+      const targetBpm = RAMP_START_BPM + (RAMP_END_BPM - RAMP_START_BPM) * Math.min(1, progress);
+      updateBpm(targetBpm, dt);
+
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    if (isPlaying) {
+      lastTickRef.current = null;
+      rafRef.current = requestAnimationFrame(tick);
+    }
+
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [isPlaying]);
 
   return (
     <footer className={`h-20 border-t flex items-center justify-between px-8 z-40 ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200'}`}>
@@ -29,8 +83,15 @@ const PlaybackPanel: React.FC<PlaybackPanelProps> = ({ isPlaying, onPlayToggle, 
           <div className="flex flex-col">
             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Tempo</p>
             <div className="flex items-center gap-2">
-              <span className="text-xl font-mono font-black">120.0</span>
+              <span className="text-xl font-mono font-black tabular-nums">{displayBpm}</span>
               <span className="text-[10px] text-zinc-600 font-bold uppercase">BPM</span>
+              <button
+                type="button"
+                onClick={() => setShowTempoRamp(true)}
+                className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border transition-all ${isDark ? 'border-zinc-700 text-zinc-400 hover:text-white hover:border-indigo-400' : 'border-zinc-200 text-zinc-500 hover:text-indigo-600 hover:border-indigo-300'}`}
+              >
+                {`${RAMP_START_BPM}→${RAMP_END_BPM} / 65:00`}
+              </button>
             </div>
           </div>
           
@@ -111,6 +172,17 @@ const PlaybackPanel: React.FC<PlaybackPanelProps> = ({ isPlaying, onPlayToggle, 
           Export
         </button>
       </div>
+
+      {showTempoRamp && (
+        <TempoRampModal
+          onClose={() => setShowTempoRamp(false)}
+          theme={theme}
+          startBpm={RAMP_START_BPM}
+          endBpm={RAMP_END_BPM}
+          durationSeconds={RAMP_DURATION_SECONDS}
+          smoothingTau={SMOOTHING_TAU_SECONDS}
+        />
+      )}
     </footer>
   );
 };
