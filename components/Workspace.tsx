@@ -123,6 +123,21 @@ const Workspace: React.FC = () => {
       .catch(err => console.error('Audio init error:', err));
   };
 
+  const handlePlayToggle = async () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+      return;
+    }
+
+    try {
+      await audioEngine.initialize();
+      setIsPlaying(true);
+    } catch (err) {
+      console.error('Audio error:', err);
+      showFeedback('Audio blocked - tap play again');
+    }
+  };
+
   const showFeedback = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
@@ -368,7 +383,7 @@ const Workspace: React.FC = () => {
       <div id="playback-panel" className="shrink-0 z-50">
         <PlaybackPanel 
           isPlaying={isPlaying} 
-          onPlayToggle={() => setIsPlaying(!isPlaying)}
+          onPlayToggle={handlePlayToggle}
           playhead={playhead}
           onEnableAudio={handleEnableAudio}
           audioEnabled={audioEnabled}
