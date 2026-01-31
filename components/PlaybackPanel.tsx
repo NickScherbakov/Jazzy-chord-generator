@@ -6,21 +6,24 @@ import {
   Fingerprint
 } from 'lucide-react';
 import TempoRampModal from './TempoRampModal';
+import { TEMPO_RAMP_START_BPM, TEMPO_RAMP_END_BPM, TEMPO_RAMP_DURATION_SECONDS } from '../constants';
 
 interface PlaybackPanelProps {
   isPlaying: boolean;
   onPlayToggle: () => void;
   playhead: number;
   onExport: () => void;
+  onEnableAudio: () => void;
+  audioEnabled: boolean;
   theme?: 'Dark' | 'Light';
 }
 
-const RAMP_START_BPM = 60;
-const RAMP_END_BPM = 180;
-const RAMP_DURATION_SECONDS = 65 * 60;
+const RAMP_START_BPM = TEMPO_RAMP_START_BPM;
+const RAMP_END_BPM = TEMPO_RAMP_END_BPM;
+const RAMP_DURATION_SECONDS = TEMPO_RAMP_DURATION_SECONDS;
 const SMOOTHING_TAU_SECONDS = 0.3;
 
-const PlaybackPanel: React.FC<PlaybackPanelProps> = ({ isPlaying, onPlayToggle, playhead, onExport, theme = 'Dark' }) => {
+const PlaybackPanel: React.FC<PlaybackPanelProps> = ({ isPlaying, onPlayToggle, playhead, onExport, onEnableAudio, audioEnabled, theme = 'Dark' }) => {
   const [swing, setSwing] = useState(50);
   const [humanize, setHumanize] = useState(true);
   const [isLooping, setIsLooping] = useState(true);
@@ -155,6 +158,17 @@ const PlaybackPanel: React.FC<PlaybackPanelProps> = ({ isPlaying, onPlayToggle, 
 
       {/* Right: Export & Volume */}
       <div className="flex items-center gap-6 min-w-[340px] justify-end">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onEnableAudio}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest border transition-all ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white hover:border-indigo-400' : 'bg-white border-zinc-200 text-zinc-600 hover:text-indigo-600 hover:border-indigo-300'}`}
+          >
+            Enable Audio
+          </button>
+          <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border ${audioEnabled ? (isDark ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-emerald-500/40 text-emerald-600 bg-emerald-500/10') : (isDark ? 'border-zinc-700 text-zinc-500' : 'border-zinc-300 text-zinc-400')}`}>
+            {audioEnabled ? 'Audio enabled' : 'Audio disabled'}
+          </span>
+        </div>
         <div className={`flex items-center gap-3 border rounded-2xl px-4 py-2.5 shadow-inner ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-200'}`}>
            <Layers size={16} className="text-zinc-500" />
            <select className="bg-transparent text-xs font-black uppercase tracking-widest focus:outline-none appearance-none cursor-pointer">

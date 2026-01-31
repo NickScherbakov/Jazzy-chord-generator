@@ -1,14 +1,17 @@
 import * as Tone from 'tone';
-import { ChordBlock } from '../types';
+import { TEMPO_RAMP_END_BPM, TEMPO_RAMP_DURATION_SECONDS } from '../constants';
+import { ChordBlock, MelodyNote } from '../types';
 
 class AudioEngine {
   private synth: Tone.PolySynth<Tone.Synth> | null = null;
   private bass: Tone.Synth | null = null;
+  private melodySynth: Tone.Synth | null = null;
   private isInitialized = false;
   private currentPlayingNotes = new Set<number>();
   private tempo = 120;
   private noteSequence: { notes: number[], time: number, duration: number }[] = [];
   private nowPlayingIndex = 0;
+  private sequenceDurationSeconds = 0;
 
   async initialize() {
     if (this.isInitialized) return;
@@ -34,6 +37,17 @@ class AudioEngine {
         decay: 0.15,
         sustain: 0.2,
         release: 0.6,
+      },
+    }).toDestination();
+
+    // Синтезатор для мелодии
+    this.melodySynth = new Tone.Synth({
+      oscillator: { type: 'square' },
+      envelope: {
+        attack: 0.005,
+        decay: 0.1,
+        sustain: 0.4,
+        release: 0.3,
       },
     }).toDestination();
 
@@ -93,6 +107,11 @@ class AudioEngine {
     }
   }
 
+  private rowToMidi(row: number): number | null {
+    const rowMidi = [60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49];
+    return rowMidi[row] ?? null;
+  }
+
   // Построить последовательность для воспроизведения
   buildSequence(chords: ChordBlock[], bpm: number) {
     this.setTempo(bpm);
@@ -112,16 +131,25 @@ class AudioEngine {
       });
       currentTime += chordDuration * beatDuration;
     });
+
+    this.sequenceDurationSeconds = currentTime / 1000;
   }
 
   // Начать воспроизведение
-  async play(chords: ChordBlock[], bpm: number) {
+  async play(chords: ChordBlock[], bpm: number, melodyNotes: MelodyNote[] = []) {
     if (!this.isInitialized) {
       await this.initialize();
     }
 
     this.buildSequence(chords, bpm);
+    Tone.Transport.bpm.value = bpm;
+    Tone.Transport.bpm.rampTo(TEMPO_RAMP_END_BPM, TEMPO_RAMP_DURATION_SECONDS);
     Tone.Transport.cancel();
+    Tone.Transport.loop = true;
+    Tone.Transport.loopStart = 0;
+    Tone.Transport.loopEnd = this.sequenceDurationSeconds;
+
+    const beatDurationSeconds = 60 / bpm;
 
     // Планируем ноты в Web Audio API
     this.noteSequence.forEach((item, idx) => {
@@ -142,6 +170,20 @@ class AudioEngine {
       }, item.time / 1000);
     });
 
+    melodyNotes.forEach((note) => {
+      const midi = this.rowToMidi(note.row);
+      if (midi === null || !this.melodySynth) return;
+      const timeSeconds = note.col * beatDurationSeconds;
+      const durationSeconds = beatDurationSeconds * 0.9;
+      Tone.Transport.schedule((time) => {
+        this.melodySynth?.triggerAttackRelease(
+          this.midiToFreq(midi),
+          durationSeconds,
+          time
+        );
+      }, timeSeconds);
+    });
+
     Tone.Transport.start();
   }
 
@@ -151,6 +193,7 @@ class AudioEngine {
     Tone.Transport.cancel();
     if (this.synth) this.synth.triggerRelease();
     if (this.bass) this.bass.triggerRelease();
+    if (this.melodySynth) this.melodySynth.triggerRelease();
   }
 
   // Пауза
@@ -172,6 +215,7 @@ class AudioEngine {
   dispose() {
     if (this.synth) this.synth.dispose();
     if (this.bass) this.bass.dispose();
+    if (this.melodySynth) this.melodySynth.dispose();
   }
 }
 

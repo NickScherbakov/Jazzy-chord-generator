@@ -24,4 +24,9 @@ export interface Project {
   mood: string;
 }
 
+export interface MelodyNote {
+  row: number;
+  col: number;
+}
+
 export type ViewTab = 'GuideTone' | 'Tension' | 'Heatmap' | 'PianoRoll';

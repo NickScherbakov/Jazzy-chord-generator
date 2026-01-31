@@ -2,6 +2,10 @@
 import React from 'react';
 import { Project, ChordBlock } from './types';
 
+export const TEMPO_RAMP_START_BPM = 65;
+export const TEMPO_RAMP_END_BPM = 140;
+export const TEMPO_RAMP_DURATION_SECONDS = 65 * 60;
+
 export const MOCK_PROJECTS: Project[] = [
   { id: '1', name: 'Midnight Blue Jam', lastModified: '2 mins ago', key: 'Bb Major', bpm: 120, timeSignature: '4/4', style: 'Cool Jazz', mood: 'Melancholic' },
   { id: '2', name: 'Bebop Frenzy', lastModified: '1 hour ago', key: 'F Minor', bpm: 240, timeSignature: '4/4', style: 'Bebop', mood: 'Energetic' },

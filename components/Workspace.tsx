@@ -18,8 +18,8 @@ import MelodyEditor from './MelodyEditor';
 import SettingsPanel from './SettingsPanel';
 import HelpOverlay from './HelpOverlay';
 import AboutModal from './AboutModal';
-import { ChordBlock, ViewTab } from '../types';
-import { INITIAL_CHORDS, AUTUMN_LEAVES_CHORDS } from '../constants';
+import { ChordBlock, MelodyNote, ViewTab } from '../types';
+import { INITIAL_CHORDS, AUTUMN_LEAVES_CHORDS, TEMPO_RAMP_START_BPM } from '../constants';
 import { audioEngine } from '../utils/audioEngine';
 
 const Workspace: React.FC = () => {
@@ -38,6 +38,13 @@ const Workspace: React.FC = () => {
   const [selectedChordIds, setSelectedChordIds] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [melodyNotes, setMelodyNotes] = useState<MelodyNote[]>([
+    { row: 4, col: 2 },
+    { row: 5, col: 4 },
+    { row: 4, col: 6 },
+    { row: 3, col: 8 }
+  ]);
   const [entropy, setEntropy] = useState(0.7);
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [inspectorIsFloating, setInspectorIsFloating] = useState(false);
@@ -91,7 +98,7 @@ const Workspace: React.FC = () => {
     
     if (isPlaying) {
       // Инициализируем и запускаем звук
-      audioEngine.play(chords, 120).catch(err => console.error('Audio error:', err));
+      audioEngine.play(chords, TEMPO_RAMP_START_BPM, melodyNotes).catch(err => console.error('Audio error:', err));
       
       interval = setInterval(() => {
         setPlayhead(prev => (prev >= 16 ? 0 : prev + 0.05));
@@ -107,7 +114,14 @@ const Workspace: React.FC = () => {
         audioEngine.stop();
       }
     };
-  }, [isPlaying, chords]);
+  }, [isPlaying, chords, melodyNotes]);
+
+  const handleEnableAudio = () => {
+    audioEngine
+      .initialize()
+      .then(() => setAudioEnabled(true))
+      .catch(err => console.error('Audio init error:', err));
+  };
 
   const showFeedback = (msg: string) => {
     setToast(msg);
@@ -287,7 +301,11 @@ const Workspace: React.FC = () => {
             {/* Timeline View - Reduced height proportion to fix overlap and empty space */}
             <div className="flex-[42] min-h-[260px] relative border-b border-zinc-900/40 overflow-hidden">
               {melodyMode ? (
-                <MelodyEditor theme={theme} />
+                <MelodyEditor
+                  theme={theme}
+                  notes={melodyNotes}
+                  onNotesChange={setMelodyNotes}
+                />
               ) : (
                 <Timeline 
                   chords={chords}
@@ -352,6 +370,8 @@ const Workspace: React.FC = () => {
           isPlaying={isPlaying} 
           onPlayToggle={() => setIsPlaying(!isPlaying)}
           playhead={playhead}
+          onEnableAudio={handleEnableAudio}
+          audioEnabled={audioEnabled}
           onExport={() => setShowExportSheet(true)}
           theme={theme}
         />

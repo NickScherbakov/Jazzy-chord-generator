@@ -1,23 +1,64 @@
 
-import React, { useState } from 'react';
+import React, { useRef } from 'react';
 import { Mic, Plus, MousePointer2, Music, Eraser } from 'lucide-react';
+import { Midi } from '@tonejs/midi';
+import { MelodyNote } from '../types';
 
 // Add interface for theme support
 interface MelodyEditorProps {
   theme?: 'Dark' | 'Light';
+  notes: MelodyNote[];
+  onNotesChange: (notes: MelodyNote[]) => void;
 }
 
-const MelodyEditor: React.FC<MelodyEditorProps> = ({ theme = 'Dark' }) => {
-  const [notes, setNotes] = useState<{row: number, col: number}[]>([
-    {row: 4, col: 2}, {row: 5, col: 4}, {row: 4, col: 6}, {row: 3, col: 8}
-  ]);
+const ROW_NOTE_NAMES = ['C','B','Bb','A','Ab','G','Gb','F','E','Eb','D','Db'];
+const PITCH_CLASS_NAMES = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+
+const MelodyEditor: React.FC<MelodyEditorProps> = ({ theme = 'Dark', notes, onNotesChange }) => {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const toggleNote = (row: number, col: number) => {
     const exists = notes.find(n => n.row === row && n.col === col);
     if (exists) {
-      setNotes(notes.filter(n => n !== exists));
+      onNotesChange(notes.filter(n => n !== exists));
     } else {
-      setNotes([...notes, {row, col}]);
+      onNotesChange([...notes, {row, col}]);
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const midi = new Midi(arrayBuffer);
+      const ppq = midi.header.ppq || 480;
+      const imported = new Map<string, MelodyNote>();
+
+      midi.tracks.forEach(track => {
+        track.notes.forEach(note => {
+          const col = Math.round(note.ticks / ppq);
+          if (col < 0 || col >= 16) return;
+
+          const pitchClass = note.midi % 12;
+          const noteName = PITCH_CLASS_NAMES[pitchClass];
+          const row = ROW_NOTE_NAMES.indexOf(noteName);
+          if (row === -1) return;
+
+          imported.set(`${row}-${col}`, { row, col });
+        });
+      });
+
+      onNotesChange(Array.from(imported.values()));
+    } catch (error) {
+      console.error('Failed to import MIDI:', error);
+    } finally {
+      event.target.value = '';
     }
   };
 
@@ -43,7 +84,7 @@ const MelodyEditor: React.FC<MelodyEditorProps> = ({ theme = 'Dark' }) => {
           <div className="w-16 flex flex-col border-r border-zinc-800">
             {Array.from({length: 12}).map((_, i) => (
               <div key={i} className={`flex-1 flex items-center justify-center font-mono text-[10px] border-b border-zinc-800 ${i % 2 === 0 ? 'bg-zinc-950' : 'bg-zinc-900'}`}>
-                {['C','B','Bb','A','Ab','G','Gb','F','E','Eb','D','Db'][i]}
+                {ROW_NOTE_NAMES[i]}
               </div>
             ))}
           </div>
@@ -71,8 +112,25 @@ const MelodyEditor: React.FC<MelodyEditorProps> = ({ theme = 'Dark' }) => {
       </div>
 
       <div className="px-8 pb-8 flex gap-4">
-        <button className="bg-zinc-900 border border-zinc-800 px-6 py-3 rounded-xl text-sm font-bold hover:border-zinc-700 transition-all">Import MIDI Melody</button>
-        <button className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-6 py-3 rounded-xl text-sm font-bold hover:bg-amber-500/20 transition-all">Clear All Notes</button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".mid,.midi"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+        <button
+          className="bg-zinc-900 border border-zinc-800 px-6 py-3 rounded-xl text-sm font-bold hover:border-zinc-700 transition-all"
+          onClick={handleImportClick}
+        >
+          Import MIDI Melody
+        </button>
+        <button
+          className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-6 py-3 rounded-xl text-sm font-bold hover:bg-amber-500/20 transition-all"
+          onClick={() => onNotesChange([])}
+        >
+          Clear All Notes
+        </button>
       </div>
     </div>
   );
