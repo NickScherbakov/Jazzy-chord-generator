@@ -19,16 +19,19 @@ import SettingsPanel from './SettingsPanel';
 import HelpOverlay from './HelpOverlay';
 import AboutModal from './AboutModal';
 import { ChordBlock, ViewTab } from '../types';
-import { INITIAL_CHORDS } from '../constants';
+import { INITIAL_CHORDS, AUTUMN_LEAVES_CHORDS } from '../constants';
 import { audioEngine } from '../utils/audioEngine';
 
 const Workspace: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   
+  // Определяем начальные аккорды в зависимости от проекта
+  const initialChords = id === '5' ? AUTUMN_LEAVES_CHORDS : INITIAL_CHORDS;
+  
   // App State
-  const [chords, setChords] = useState<ChordBlock[]>(INITIAL_CHORDS);
-  const [history, setHistory] = useState<ChordBlock[][]>([INITIAL_CHORDS]);
+  const [chords, setChords] = useState<ChordBlock[]>(initialChords);
+  const [history, setHistory] = useState<ChordBlock[][]>([initialChords]);
   const [historyIndex, setHistoryIndex] = useState(0);
   
   // UI State

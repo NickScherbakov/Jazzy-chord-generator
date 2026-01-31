@@ -68,16 +68,29 @@ class AudioEngine {
 
   // Преобразование ChordBlock в мидю ноты
   private chordToMidi(chord: ChordBlock): number[] {
-    // Базовые ноты для каждого типа аккорда
-    const noteMap: { [key: string]: number[] } = {
-      'Cmaj7': [60, 64, 67, 71], // C E G B
-      'Dm7': [62, 65, 69, 72],   // D F A C
-      'G7': [67, 71, 74, 77],    // G B D F#
-      'Cmaj7(9)': [60, 64, 67, 71, 74], // C E G B D
-      // Добавьте больше аккордов по необходимости
+    // Базовые ноты для каждого типа аккорда (MIDI номера)
+    const rootNotes: { [key: string]: number } = {
+      'C': 60, 'D': 62, 'E': 64, 'F': 65, 'G': 67, 'A': 69, 'B': 71,
+      'Db': 61, 'Eb': 63, 'Gb': 66, 'Ab': 68, 'Bb': 70,
     };
 
-    return noteMap[chord.name] || [60, 64, 67, 71]; // По умолчанию C major 7
+    const root = rootNotes[chord.root] || 60;
+
+    // Определяем интервалы для разных типов аккордов
+    if (chord.quality.includes('Major 7') || chord.quality === 'Major 9') {
+      return [root, root + 4, root + 7, root + 11]; // 1, 3, 5, 7
+    } else if (chord.quality.includes('Minor 7') || chord.quality === 'Minor 9') {
+      return [root, root + 3, root + 7, root + 10]; // 1, b3, 5, b7
+    } else if (chord.quality.includes('Dominant')) {
+      return [root, root + 4, root + 7, root + 10]; // 1, 3, 5, b7
+    } else if (chord.quality === 'Half-Diminished') {
+      return [root, root + 3, root + 6, root + 10]; // 1, b3, b5, b7
+    } else if (chord.quality === 'Minor 6') {
+      return [root, root + 3, root + 7, root + 9]; // 1, b3, 5, 6
+    } else {
+      // По умолчанию major 7
+      return [root, root + 4, root + 7, root + 11];
+    }
   }
 
   // Построить последовательность для воспроизведения
